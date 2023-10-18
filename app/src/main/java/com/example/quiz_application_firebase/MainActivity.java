@@ -1,10 +1,5 @@
 package com.example.quiz_application_firebase;
 
-import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
-import androidx.appcompat.app.ActionBar;
-import androidx.appcompat.app.AppCompatActivity;
-
 import android.app.Dialog;
 import android.app.ProgressDialog;
 import android.content.Intent;
@@ -18,17 +13,27 @@ import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.Toast;
 
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+import androidx.appcompat.app.ActionBar;
+import androidx.appcompat.app.AppCompatActivity;
+import androidx.recyclerview.widget.GridLayoutManager;
+
+import com.example.quiz_application_firebase.Adapters.CategoryAdapter;
 import com.example.quiz_application_firebase.Models.CategoryModel;
 import com.example.quiz_application_firebase.databinding.ActivityMainBinding;
 import com.google.android.gms.tasks.OnFailureListener;
 import com.google.android.gms.tasks.OnSuccessListener;
+import com.google.firebase.database.DataSnapshot;
+import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
+import com.google.firebase.database.ValueEventListener;
 import com.google.firebase.storage.FirebaseStorage;
 import com.google.firebase.storage.StorageReference;
 import com.google.firebase.storage.UploadTask;
-import com.google.firebase.storage.ktx.FirebaseStorageKtxRegistrar;
 
+import java.util.ArrayList;
 import java.util.Date;
 
 public class MainActivity extends AppCompatActivity {
@@ -47,6 +52,10 @@ public class MainActivity extends AppCompatActivity {
     Uri imageUri;
 
     int i=0;
+
+    ArrayList<CategoryModel>list;
+    CategoryAdapter adapter;
+
 
     ProgressDialog progressDialog;
 
@@ -72,6 +81,8 @@ public class MainActivity extends AppCompatActivity {
         database = FirebaseDatabase.getInstance();
         storage = FirebaseStorage.getInstance();
 
+        list=new ArrayList<>();
+
         dialog = new Dialog ( this);
         dialog.setContentView (R.layout.item_add_category_dialog);
         if (dialog.getWindow() !=null) {
@@ -88,6 +99,42 @@ public class MainActivity extends AppCompatActivity {
         inputCategoryName = dialog.findViewById(R.id.inputCategoryName);
         categoryImage = dialog.findViewById(R.id.categoryImage);
         fetchImage = dialog.findViewById(R.id.fetchimage);
+
+        GridLayoutManager layoutManager=new GridLayoutManager(this,2);
+        binding.recyCategory.setLayoutManager(layoutManager);
+
+        adapter=new CategoryAdapter(this,list);
+        binding.recyCategory.setAdapter(adapter);
+        database.getReference().child("categories").addValueEventListener(new ValueEventListener() {
+            @Override
+            public void onDataChange(@NonNull DataSnapshot snapshot) {
+                if(snapshot.exists()){
+
+                    list.clear();
+                    for(DataSnapshot dataSnapshot: snapshot.getChildren()){
+
+
+                        list.add(new CategoryModel(
+
+                                dataSnapshot.child("categoryName").getValue().toString(),
+                                dataSnapshot.child("categoryImage").getValue().toString(),
+                                dataSnapshot.getKey(),
+                                Integer.parseInt(dataSnapshot.child("setNum").getValue().toString())
+
+                        ));
+
+                    }
+                    adapter.notifyDataSetChanged();
+                }else{
+                    Toast.makeText(MainActivity.this, "Category not exist", Toast.LENGTH_SHORT).show();
+                }
+            }
+
+            @Override
+            public void onCancelled(@NonNull DatabaseError error) {
+                Toast.makeText(MainActivity.this, error.getMessage(), Toast.LENGTH_SHORT).show();
+            }
+        });
 
         binding.addCategory.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -142,7 +189,7 @@ public class MainActivity extends AppCompatActivity {
                             categoryModel.setSetNum(0);
                             categoryModel.setCategoryImage(uri.toString());
 
-                            database.getReference().child("category").child("category" + i++).setValue(categoryModel).addOnSuccessListener(new OnSuccessListener<Void>() {
+                            database.getReference().child("category").push().setValue(categoryModel).addOnSuccessListener(new OnSuccessListener<Void>() {
                                 @Override
                                 public void onSuccess(Void unused) {
                                     Toast.makeText(MainActivity.this, "Data Uploaded", Toast.LENGTH_SHORT).show();
